@@ -313,7 +313,7 @@ class Application(Server_Method):
             self._CLIENT[index].get_client_interaction().systemCommandWindow()
 
     def update_waiting_client_list(self):
-        CLIENT_backup = self._WATING_CLIENT.copy()
+        CLIENT_backup = []
         while not self._STOP.is_set():
             if CLIENT_backup != self._WATING_CLIENT:
                 self.list_waiting_client.delete(0, tk.END)
@@ -324,7 +324,7 @@ class Application(Server_Method):
                 CLIENT_backup = self._WATING_CLIENT.copy()
 
     def update_client_list(self):
-        CLIENT_backup = self._CLIENT.copy()
+        CLIENT_backup = []
         while not self._STOP.is_set():
             if CLIENT_backup != self._CLIENT:
                 self.mylist.delete(0, tk.END)

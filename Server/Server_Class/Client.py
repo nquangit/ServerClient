@@ -54,7 +54,7 @@ class Client:
                 self._CONNECTED = True
                 return True
             else:
-                self.send_message("Hello, this is a socket server.")
+                self.send_message("", "Hello, this is a socket server.")
                 self.disconnect()
                 return False
         else:
@@ -63,7 +63,12 @@ class Client:
                 return True
             if data[0] == "command":
                 command = base64.b64decode(data[1].encode()).decode()
-                res = data[2].encode()
+                res = data[2]
+                # Calculate the number of padding characters needed
+                padding = 4 - len(res) % 4
+                # Add the padding characters
+                res += "=" * padding
+                res = res.encode()
                 res = base64.b64decode(res).decode()
                 self._COMMAND_RESPONSE.append({command: res})
                 self._RESPONSED = True
