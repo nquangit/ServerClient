@@ -43,31 +43,31 @@ class Server_Method(Server_Info, Client):
         while not self._STOP.is_set():
             # Make a copy of the clients list to avoid concurrent modification
             with self._LOCK:
-                _CLIENT_COPY = list(self._CLIENT)
-                _WAITING_CLIENT_COPY = list(self._WATING_CLIENT)
+                _CLIENT_COPY = self._CLIENT.copy()
+                _WAITING_CLIENT_COPY = self._WATING_CLIENT.copy()
             # Check each client connection
             for client in _CLIENT_COPY:
                 if client.get_connection()._closed:
                     # Connection is closed or has error, remove it from clients list
+                    self._NOTIFY.append(
+                        f"Disconnected from {client.get_info()[0]}")
                     with self._LOCK:
-                        self._NOTIFY.append(
-                            f"Disconnected from {client.get_info()[0]}")
                         self._CLIENT.remove(client)
 
             for client in _WAITING_CLIENT_COPY:
                 if client.get_connection()._closed:
                     # Connection is closed or has error, remove it from clients list
+                    self._NOTIFY.append(
+                        f"""Connection from {client.get_address()} has been lost, removing""")
                     with self._LOCK:
                         self._WATING_CLIENT.remove(client)
-                        self._NOTIFY.append(
-                            f"""Connection from {client.get_address()} has been lost, removing""")
 
                 if client.connected():
+                    self._NOTIFY.append(
+                        f"Connected from {client.get_connection().getpeername()} -> {client.get_info()[0]}")
                     with self._LOCK:
                         self._WATING_CLIENT.remove(client)
                         self._CLIENT.append(client)
-                        self._NOTIFY.append(
-                            f"Connected from {client.get_connection().getpeername()} -> {client.get_info()[0]}")
 
     def printNotify(self):
         for i in self._NOTIFY:

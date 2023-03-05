@@ -8,17 +8,21 @@ SMALL_FONT = ("Tahoma", 10)
 
 class client_interraction(Client):
     _STOP_UPDATE_RESPONSE = threading.Event()
+    _system_command_window_open = False
 
     def __init__(self, master, client) -> None:
         self.__master = master
         self.__client = client
 
     def systemCommandWindow(self):
+        if self._system_command_window_open:
+            return
+        self._system_command_window_open = True
         self.__system_command_window = tk.Toplevel(self.__master)
         self.__system_command_window.title(
             f"System Command | {self.__client._INFO[0]}")
         self.__system_command_window.geometry("500x500")
-        self.__system_command_window.resizable(False, False)
+        self.__system_command_window.resizable(True, False)
         self.__system_command_window.option_add("*Font", FONT)
 
         frame = tk.Frame(self.__system_command_window,
@@ -48,7 +52,7 @@ class client_interraction(Client):
         # Add the history to the output
         for command in history:
             for key, value in command.items():
-                self.__output.insert(tk.END, f"\n{key}: {value}")
+                self.__output.insert(tk.END, f"\n{key}:\n{value}")
 
     def systemCommandWindow_onclosing(self):
         self._STOP_UPDATE_RESPONSE.set()
@@ -56,6 +60,7 @@ class client_interraction(Client):
 
     def systemCommandWindow_send_command(self):
         command = self.__command.get()
+        self.__command.delete(0, tk.END)
         if not command or len(command) == 0:
             return
         self.__output.insert(
@@ -248,7 +253,6 @@ class Application(Server_Method):
             "<Button-3>", self.waiting_client_context_menu_popup)
 
     def waiting_client_context_menu_popup(self, event):
-        print("Right click")
         selection = self.list_waiting_client.curselection()
         if selection:
             self.waiting_client_context_menu.post(event.x_root, event.y_root)
