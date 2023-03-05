@@ -21,7 +21,7 @@ class client_interraction(Client):
         self.__system_command_window = tk.Toplevel(self.__master)
         self.__system_command_window.title(
             f"System Command | {self.__client._INFO[0]}")
-        self.__system_command_window.geometry("500x500")
+        self.__system_command_window.geometry("500x550")
         self.__system_command_window.resizable(True, False)
         self.__system_command_window.option_add("*Font", FONT)
 
