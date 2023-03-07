@@ -100,7 +100,6 @@ class Application(Server_Method):
         # show image windows
 
     def on_closing(self):
-        self._STOP_UPDATE_RESPONSE.set()
         self._STOP.set()
         self.stop()
         self.__main.destroy()
@@ -120,14 +119,8 @@ class Application(Server_Method):
         self.Tabs.add(self.notify_tab, text='Notify')
         self.add_notify_tab()
 
-        self.system_command_tab = ttk.Frame(self.Tabs)
-        self.Tabs.add(self.system_command_tab, text='System Command')
-        self.add_system_command_tab()
-
         self.about_tab = ttk.Frame(self.Tabs)
         self.Tabs.add(self.about_tab, text='About')
-
-        # self.Tabs.add(ttk.Frame(self.Tabs), text='Chat')
 
         self.Tabs.pack(expand=True, fill="both")
 
@@ -141,77 +134,6 @@ class Application(Server_Method):
         self.show_image_button.pack(side=tk.RIGHT)
 
         toolbar.pack(side=tk.BOTTOM, anchor=tk.W, fill=tk.X)
-
-    def add_system_command_tab(self):
-        container = self.system_command_tab
-        system_command_frame = tk.LabelFrame(
-            container, text="System Command", borderwidth=2, relief=tk.RIDGE, padx=7, pady=7, font=self.SMALL_FONT)
-        command_frame = tk.Frame(system_command_frame)
-        self.system_command_entry = ttk.Entry(command_frame)
-        self.system_command_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
-        self.system_command_entry.bind("<Return>", self.send_command)
-        self.system_command_button = ttk.Button(
-            command_frame, text="Send", command=self.send_command)
-        self.system_command_button.pack(side=tk.RIGHT)
-        command_frame.pack(side=tk.TOP, fill=tk.X)
-
-        # Listbox to select the client
-        client_frame = tk.LabelFrame(
-            system_command_frame, text="Clients", borderwidth=2, relief=tk.RIDGE, padx=7, pady=7, font=self.SMALL_FONT)
-        scrollbar_y = ttk.Scrollbar(client_frame)
-        scrollbar_x = ttk.Scrollbar(client_frame, orient=tk.HORIZONTAL)
-        self.list_client_var = tk.Variable(value=list([]))
-        self.list_client = tk.Listbox(
-            client_frame, yscrollcommand=scrollbar_y.set, xscrollcommand=scrollbar_x.set, listvariable=self.list_client_var)
-        self.list_client.bind("<<ListboxSelect>>", self.list_client_select)
-        self.list_client.pack(side=tk.LEFT, fill=tk.BOTH)
-        client_frame.pack(side=tk.LEFT, fill=tk.Y, expand=True, anchor=tk.NW)
-
-        output_frame = tk.LabelFrame(
-            system_command_frame, text="Output", borderwidth=2, relief=tk.RIDGE, padx=7, pady=7, font=self.SMALL_FONT)
-        scrollbar_y = ttk.Scrollbar(output_frame)
-        scrollbar_x = ttk.Scrollbar(output_frame, orient=tk.HORIZONTAL)
-        self.system_command_text = tk.Text(
-            output_frame, yscrollcommand=scrollbar_y.set, xscrollcommand=scrollbar_x.set)
-        self.system_command_text.pack(side=tk.LEFT, fill=tk.BOTH)
-        output_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
-        system_command_frame.pack(fill=tk.BOTH, expand=True)
-
-    def list_client_select(self, event):
-        self._STOP_UPDATE_RESPONSE.set()
-        selection = event.widget.curselection()
-        if selection:
-            index = selection[0]
-            list_requests = self._CLIENT[index].get_command_response()
-            self.system_command_text.delete(1.0, tk.END)
-            for request in list_requests:
-                for key, value in request.items():
-                    self.system_command_text.insert(
-                        tk.END, f"{key}:\n{value}")
-
-    def send_command(self, event=None):
-        command = self.system_command_entry.get()
-        if not command or len(command) == 0:
-            return
-        self.system_command_text.insert(
-            tk.END, f"Executing command: {command}")
-        for client in self.list_client.curselection():
-            self._CLIENT[client].send_message("command", command)
-        # Create a new thread to check the command response
-        self._STOP_UPDATE_RESPONSE.clear()
-        self._UPDATE_RESPONSE_THREAD = threading.Thread(
-            target=self.update_response)
-        self._UPDATE_RESPONSE_THREAD.start()
-
-    def update_response(self):
-        while not self._STOP_UPDATE_RESPONSE.is_set():
-            for client in self.list_client.curselection():
-                if self._CLIENT[client].responsed():
-                    self._CLIENT[client].reset_responsed()
-                    res = self._CLIENT[client].get_command_response()[-1]
-                    for key, value in res.items():
-                        self.system_command_text.insert(
-                            tk.END, f"\n{value}")
 
     def add_notify_tab(self):
         container = self.notify_tab
