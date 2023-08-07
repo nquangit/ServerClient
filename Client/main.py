@@ -6,7 +6,7 @@ import time
 import base64
 
 
-HOST = '27.71.25.13'
+HOST = '20.188.26.190'
 HOST = 'localhost'
 PORT = 13044
 DEBUG = True

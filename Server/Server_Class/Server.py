@@ -10,12 +10,15 @@ class Server(Server_Method):
         self._SOCKET.bind((self._HOST, self._PORT))
         self._SOCKET.listen()
 
+        self._contactGUIApp()
+
         if self.DEBUG:
             print(f'Server listening on {self._HOST}:{self._PORT}')
-        self._NOTIFY.append(f'Server listening on {self._HOST}:{self._PORT}')
+        self._appendNotify(f'Server listening on {self._HOST}:{self._PORT}')
 
         self._thread = threading.Thread(target=self.listen, daemon=True)
         self._thread.start()
+        threading.Thread(target=self._check_alive, daemon=True).start()
 
     def __del__(self):
         self.stop()  # stop the thread and close the socket when the object is deleted

@@ -7,13 +7,13 @@ class Client:
     __client_socket = None
     __client_address = None
     DEBUG = False
-    _NOTIFY = []
     _INFO = []
     _CONNECTED = False
     _COMMAND_RESPONSE = []
     _RESPONSED = False
     _clientInteraction = None
     _STOP = Event()
+    _ACCEPT_TO_CONNECT = False
 
     def __init__(self, client_socket, client_address, DEBUG) -> None:
         super().__init__()
@@ -40,42 +40,38 @@ class Client:
 
         # close the client socket
         self.__client_socket.close()
-        if self.DEBUG:
-            print(f"Client disconnected from {self.__client_address}")
-        self._NOTIFY.append(
-            f"Client disconnected from {self.__client_address}")
 
     def __handle_response(self, data):
         if not self._CONNECTED:
             if self.__is_valid_ip(data):
-                # print(f"Connected from {data}")
-                self._NOTIFY.append(f"Connected from {data}")
                 self._INFO.append(data)
                 self._CONNECTED = True
                 return True
             else:
                 self.send_message("", "Hello, this is a socket server.")
-                self.disconnect()
+                self.destroy()
                 return False
         else:
             data = data.split("|")
             if len(data) < 3:
                 return True
             if data[0] == "command":
-                command = base64.b64decode(data[1].encode()).decode()
-                res = data[2]
-                # Calculate the number of padding characters needed
-                padding = 4 - len(res) % 4
-                # Add the padding characters
-                res += "=" * padding
-                res = res.encode()
-                res = base64.b64decode(res).decode()
-                self._COMMAND_RESPONSE.append({command: res})
-                self._RESPONSED = True
+                self.handle_command_response(data[1], data[2])
+                return True
             return True
 
+    def handle_command_response(self, command_base64, response_base64):
+        command = base64.b64decode(command_base64.encode()).decode()
+        response = response_base64
+        padding = 4 - len(response) % 4
+        response += "=" * padding
+        response = response.encode()
+        response = base64.b64decode(response).decode()
+        self._COMMAND_RESPONSE.append({command: response})
+        self._RESPONSED = True
+
     def __is_valid_ip(self, ip_address):
-        pattern = r'^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$'
+        pattern = r'^((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)$'
         return re.match(pattern, ip_address) is not None
 
     def get_info(self):
@@ -117,3 +113,7 @@ class Client:
 
     def get_client_interaction(self):
         return self._clientInteraction
+
+    def destroy(self):
+        self.disconnect()
+        del self

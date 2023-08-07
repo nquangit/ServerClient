@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 from .Server_Method import *
+import zmq
 
 FONT = ("Tahoma", 12)
 SMALL_FONT = ("Tahoma", 10)
@@ -170,7 +171,9 @@ class Application(Server_Method):
         self.waiting_client_context_menu = tk.Menu(
             self.list_waiting_client, tearoff=0)
         self.waiting_client_context_menu.add_command(
-            label="Disconnect", command=self.waiting_client_context_menu_delete_command)
+            label="Accept", command=self.waiting_client_context_menu_accept_command)
+        self.waiting_client_context_menu.add_command(
+            label="Deny", command=self.waiting_client_context_menu_delete_command)
         self.list_waiting_client.bind(
             "<Button-3>", self.waiting_client_context_menu_popup)
 
@@ -179,21 +182,28 @@ class Application(Server_Method):
         if selection:
             self.waiting_client_context_menu.post(event.x_root, event.y_root)
 
+    def waiting_client_context_menu_accept_command(self):
+        selection = self.list_waiting_client.curselection()
+        if selection:
+            with self._LOCK:
+                index = selection[0]
+                self._WATING_CLIENT[index]._ACCEPT_TO_CONNECT = True
+
+        self.waiting_client_context_menu.unpost()
+
     def waiting_client_context_menu_delete_command(self):
         selection = self.list_waiting_client.curselection()
         if selection:
             index = selection[0]
-            self._WATING_CLIENT[index].disconnect()
+            self._WATING_CLIENT[index].destroy()
 
         self.waiting_client_context_menu.unpost()
 
     def add_vocabulary_tab(self):
         container = self.vocabulary_tab
 
-        # Search box
         search = tk.LabelFrame(container, text="Tool", borderwidth=2,
                                relief=tk.RIDGE, padx=7, pady=7, font=self.SMALL_FONT)
-        search_text = tk.StringVar()
         search_entry = ttk.Label(search, text="Something")
 
         wordlist = tk.LabelFrame(
@@ -220,12 +230,21 @@ class Application(Server_Method):
             self.mylist, tearoff=0)
         self.client_context_menu.add_command(
             label="System command", command=self.client_context_menu_system_cmd_command)
+        self.client_context_menu.add_command(
+            label="Disconnect", command=self.client_context_menu_disconnect_command)
         self.mylist.bind("<Button-3>", self.client_context_menu_popup)
 
     def client_context_menu_popup(self, event):
         selection = self.mylist.curselection()
         if selection:
             self.client_context_menu.post(event.x_root, event.y_root)
+
+    def client_context_menu_disconnect_command(self):
+        selection = self.mylist.curselection()
+        self.client_context_menu.unpost()
+        if selection:
+            index = selection[0]
+            self._CLIENT[index].destroy()
 
     def client_context_menu_system_cmd_command(self):
         selection = self.mylist.curselection()
@@ -235,49 +254,44 @@ class Application(Server_Method):
             self._CLIENT[index].get_client_interaction().systemCommandWindow()
 
     def update_waiting_client_list(self):
-        CLIENT_backup = []
-        while not self._STOP.is_set():
-            if CLIENT_backup != self._WATING_CLIENT:
-                self.list_waiting_client.delete(0, tk.END)
-                for client in self._WATING_CLIENT:
-                    print(client.get_connection().getpeername())
-                    self.list_waiting_client.insert(
-                        tk.END, client.get_connection().getpeername())
-                CLIENT_backup = self._WATING_CLIENT.copy()
+        self.list_waiting_client.delete(0, tk.END)
+        for client in self._WATING_CLIENT:
+            # print(client.get_connection().getpeername())
+            self.list_waiting_client.insert(
+                tk.END, client.get_connection().getpeername())
 
     def update_client_list(self):
-        CLIENT_backup = []
-        while not self._STOP.is_set():
-            if CLIENT_backup != self._CLIENT:
-                self.mylist.delete(0, tk.END)
-                self.list_client.delete(0, tk.END)
-                for client in self._CLIENT:
-                    print(client.get_info())
-                    client_interact = client_interraction(self.__main, client)
-                    client.set_client_interaction(client_interact)
-                    self.mylist.insert(tk.END, client.get_info()[0])
-                    self.list_client.insert(tk.END, client.get_info()[0])
-                CLIENT_backup = self._CLIENT.copy()
+        self.mylist.delete(0, tk.END)
+        self.list_waiting_client.delete(0, tk.END)
+        for client in self._CLIENT:
+            # print(client.get_info())
+            client_interact = client_interraction(self.__main, client)
+            client.set_client_interaction(client_interact)
+            self.mylist.insert(tk.END, client.get_info()[0])
 
     def update_notification(self):
-        while not self._STOP.is_set():
-            if len(self._NOTIFY) > 0:
-                print(self._NOTIFY)
-                for notify in self._NOTIFY:
-                    self.list_notify.insert(tk.END, notify)
-                self._NOTIFY.clear()
+        if len(self._NOTIFY) > 0:
+            for notify in self._NOTIFY:
+                self.list_notify.insert(tk.END, notify)
+            self._NOTIFY.clear()
+
+    def contactServer(self):
+        self.GUIAppcontext = zmq.Context()
+        self.GUIcontactSocket = self.GUIAppcontext.socket(zmq.SUB)
+        self.GUIcontactSocket.connect(self._contactGUIApplicationAddress)
+        self.GUIcontactSocket.subscribe(b"")
+        while True:
+            message = self.GUIcontactSocket.recv_string()
+            if message == UPDATE_NOTIFY:
+                self.update_notification()
+            elif message == UPDATE_WAITING_CLIENT:
+                self.update_waiting_client_list()
+            elif message == UPDATE_CLIENT:
+                self.update_client_list()
 
     def run(self):
-        self.update_client_list_thread = threading.Thread(
-            target=self.update_client_list, daemon=True)
-        self.update_client_list_thread.start()
-
-        self.update_waiting_client_list_thread = threading.Thread(
-            target=self.update_waiting_client_list, daemon=True)
-        self.update_waiting_client_list_thread.start()
-
-        self.update_notification_thread = threading.Thread(
-            target=self.update_notification, daemon=True)
-        self.update_notification_thread.start()
+        self.getServerContact = threading.Thread(
+            target=self.contactServer, daemon=True)
+        self.getServerContact.start()
 
         self.__main.mainloop()
